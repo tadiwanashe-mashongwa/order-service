@@ -9,6 +9,9 @@ import com.example.orderservice.dto.CreateOrderResponse;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderItem;
 import com.example.orderservice.entity.OrderStatus;
+import com.example.orderservice.event.OrderCreatedEvent;
+import com.example.orderservice.mapper.OrderEventMapper;
+import com.example.orderservice.producer.OrderEventProducer;
 import com.example.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +24,8 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final CatalogueClient catalogueClient;
+    private final OrderEventMapper orderEventMapper;
+    private final OrderEventProducer orderEventProducer;
 
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
 
@@ -38,7 +43,7 @@ public class OrderService {
             ApiResponse<PartResponse> response =
                     catalogueClient.getPartById(itemRequest.partId());
 
-            // Extract the part
+            // Extract the part-
             PartResponse part = response.data();
 
             // Convert MoneyResponse -> BigDecimal
@@ -68,6 +73,10 @@ public class OrderService {
         order.setTotalAmount(totalAmount);
 
         Order savedOrder = orderRepository.save(order);
+        OrderCreatedEvent event =
+                orderEventMapper.toOrderCreatedEvent(savedOrder);
+
+        orderEventProducer.publishOrderCreated(event);
 
         return new CreateOrderResponse(
                 savedOrder.getId(),
