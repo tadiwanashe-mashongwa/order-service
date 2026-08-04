@@ -1,5 +1,8 @@
 package com.example.orderservice.service;
 
+import com.example.orderservice.client.ApiResponse;
+import com.example.orderservice.client.CatalogueClient;
+import com.example.orderservice.client.PartResponse;
 import com.example.orderservice.dto.CreateOrderItemRequest;
 import com.example.orderservice.dto.CreateOrderRequest;
 import com.example.orderservice.dto.CreateOrderResponse;
@@ -17,6 +20,7 @@ import java.math.BigDecimal;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final CatalogueClient catalogueClient;
 
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
 
@@ -30,15 +34,27 @@ public class OrderService {
 
         for (CreateOrderItemRequest itemRequest : request.items()) {
 
-            BigDecimal unitPrice = BigDecimal.ZERO; // Will come from Catalogue Service
+            // Call Catalogue Service
+            ApiResponse<PartResponse> response =
+                    catalogueClient.getPartById(itemRequest.partId());
 
+            // Extract the part
+            PartResponse part = response.data();
+
+            // Convert MoneyResponse -> BigDecimal
+            BigDecimal unitPrice = BigDecimal.valueOf(
+                    part.price().amount()
+            );
+
+            // Calculate subtotal
             BigDecimal subtotal = unitPrice.multiply(
                     BigDecimal.valueOf(itemRequest.quantity())
             );
 
+            // Create OrderItem
             OrderItem orderItem = OrderItem.builder()
                     .partId(itemRequest.partId())
-                    .partName("UNKNOWN") // Will come from Catalogue Service
+                    .partName(part.name())
                     .unitPrice(unitPrice)
                     .quantity(itemRequest.quantity())
                     .subtotal(subtotal)
@@ -61,5 +77,4 @@ public class OrderService {
                 savedOrder.getCreatedAt()
         );
     }
-
 }

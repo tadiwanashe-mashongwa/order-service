@@ -4,7 +4,7 @@ import java.util.UUID;
 
 public record PartResponse(
 
-        UUID partId,
+        UUID id,
 
         String name,
 

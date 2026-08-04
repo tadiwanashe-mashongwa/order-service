@@ -13,6 +13,6 @@ import java.util.UUID;
 public interface CatalogueClient {
 
     @GetMapping("/api/parts/{id}")
-    PartResponse getPart(@PathVariable UUID id);
+    ApiResponse<PartResponse> getPartById(@PathVariable UUID id);
 
 }
