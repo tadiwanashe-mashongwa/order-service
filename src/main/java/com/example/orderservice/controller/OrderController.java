@@ -7,10 +7,13 @@ import com.example.orderservice.dto.OrderSummaryResponse;
 import com.example.orderservice.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -36,14 +39,37 @@ public class OrderController {
     }
 
     @GetMapping
-    public List<OrderSummaryResponse> getAllOrders() {
-        return orderService.getAllOrders();
+    public Page<OrderSummaryResponse> getAllOrders(
+
+            @PageableDefault(
+                    size = 10,
+                    sort = "createdAt",
+                    direction = Sort.Direction.DESC
+            )
+            Pageable pageable
+
+    ) {
+
+        return orderService.getAllOrders(pageable);
     }
 
     @GetMapping("/customer/{customerId}")
-    public List<OrderSummaryResponse> getOrdersByCustomer(
-            @PathVariable UUID customerId
+    public Page<OrderSummaryResponse> getOrdersByCustomer(
+
+            @PathVariable UUID customerId,
+
+            @PageableDefault(
+                    size = 10,
+                    sort = "createdAt",
+                    direction = Sort.Direction.DESC
+            )
+            Pageable pageable
+
     ) {
-        return orderService.getOrdersByCustomer(customerId);
+
+        return orderService.getOrdersByCustomer(
+                customerId,
+                pageable
+        );
     }
 }

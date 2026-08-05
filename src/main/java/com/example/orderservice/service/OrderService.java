@@ -18,11 +18,12 @@ import com.example.orderservice.mapper.OrderMapper;
 import com.example.orderservice.producer.OrderEventProducer;
 import com.example.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -102,20 +103,19 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public List<OrderSummaryResponse> getAllOrders() {
+    public Page<OrderSummaryResponse> getAllOrders(Pageable pageable) {
 
-        return orderRepository.findAllSorted()
-                .stream()
-                .map(orderMapper::toOrderSummaryResponse)
-                .toList();
+        return orderRepository.findAll(pageable)
+                .map(orderMapper::toOrderSummaryResponse);
     }
 
     @Transactional(readOnly = true)
-    public List<OrderSummaryResponse> getOrdersByCustomer(UUID customerId) {
+    public Page<OrderSummaryResponse> getOrdersByCustomer(
+            UUID customerId,
+            Pageable pageable
+    ) {
 
-        return orderRepository.findByCustomerId(customerId)
-                .stream()
-                .map(orderMapper::toOrderSummaryResponse)
-                .toList();
+        return orderRepository.findByCustomerId(customerId, pageable)
+                .map(orderMapper::toOrderSummaryResponse);
     }
 }
