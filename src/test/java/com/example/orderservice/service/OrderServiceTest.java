@@ -4,10 +4,7 @@ import com.example.orderservice.client.ApiResponse;
 import com.example.orderservice.client.CatalogueClient;
 import com.example.orderservice.client.MoneyResponse;
 import com.example.orderservice.client.PartResponse;
-import com.example.orderservice.dto.CreateOrderItemRequest;
-import com.example.orderservice.dto.CreateOrderRequest;
-import com.example.orderservice.dto.CreateOrderResponse;
-import com.example.orderservice.dto.OrderResponse;
+import com.example.orderservice.dto.*;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.event.OrderCreatedEvent;
@@ -23,6 +20,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -255,5 +256,99 @@ class OrderServiceTest {
                 .toOrderResponse(any());
 
         verifyNoMoreInteractions(orderRepository);
+    }
+    @Test
+    void shouldReturnAllOrdersWhenStatusIsNull() {
+
+        // Arrange
+        Pageable pageable = PageRequest.of(0, 10);
+
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .build();
+
+        OrderSummaryResponse response = mock(OrderSummaryResponse.class);
+
+        Page<Order> page =
+                new PageImpl<>(List.of(order));
+
+        when(orderRepository.findAll(pageable))
+                .thenReturn(page);
+
+        when(orderMapper.toOrderSummaryResponse(order))
+                .thenReturn(response);
+
+        // Act
+        Page<OrderSummaryResponse> result =
+                orderService.getAllOrders(null, pageable);
+
+        // Assert
+        assertEquals(1, result.getTotalElements());
+        assertSame(response, result.getContent().getFirst());
+
+        verify(orderRepository).findAll(pageable);
+
+        verify(orderRepository, never())
+                .findByStatus(any(), any());
+
+        verify(orderMapper)
+                .toOrderSummaryResponse(order);
+
+        verifyNoMoreInteractions(
+                orderRepository,
+                orderMapper
+        );
+    }
+    @Test
+    void shouldReturnOrdersFilteredByStatus() {
+
+        // Arrange
+        Pageable pageable = PageRequest.of(0, 10);
+
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.PENDING)
+                .build();
+
+        OrderSummaryResponse response = mock(OrderSummaryResponse.class);
+
+        Page<Order> page =
+                new PageImpl<>(List.of(order));
+
+        when(orderRepository.findByStatus(
+                OrderStatus.PENDING,
+                pageable))
+                .thenReturn(page);
+
+        when(orderMapper.toOrderSummaryResponse(order))
+                .thenReturn(response);
+
+        // Act
+        Page<OrderSummaryResponse> result =
+                orderService.getAllOrders(
+                        OrderStatus.PENDING,
+                        pageable
+                );
+
+        // Assert
+        assertEquals(1, result.getTotalElements());
+        assertSame(response, result.getContent().getFirst());
+
+        verify(orderRepository)
+                .findByStatus(
+                        OrderStatus.PENDING,
+                        pageable
+                );
+
+        verify(orderRepository, never())
+                .findAll(any(Pageable.class));
+
+        verify(orderMapper)
+                .toOrderSummaryResponse(order);
+
+        verifyNoMoreInteractions(
+                orderRepository,
+                orderMapper
+        );
     }
 }
