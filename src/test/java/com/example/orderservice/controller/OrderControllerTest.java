@@ -256,4 +256,75 @@ class OrderControllerTest {
                         any(Pageable.class)
                 );
     }
+    @Test
+    void shouldReturnOrdersForCustomer() throws Exception {
+
+        // Given
+        UUID customerId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+
+        OrderSummaryResponse response =
+                new OrderSummaryResponse(
+                        orderId,
+                        customerId,
+                        OrderStatus.PENDING,
+                        new BigDecimal("240"),
+                        Instant.now()
+                );
+
+        Page<OrderSummaryResponse> page =
+                new PageImpl<>(List.of(response));
+
+        when(orderService.getOrdersByCustomer(
+                eq(customerId),
+                any(Pageable.class)))
+                .thenReturn(page);
+
+        // When + Then
+        mockMvc.perform(
+                        get("/api/orders/customer/{customerId}", customerId)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].customerId")
+                        .value(customerId.toString()))
+                .andExpect(jsonPath("$.content[0].status")
+                        .value("PENDING"))
+                .andExpect(jsonPath("$.totalElements")
+                        .value(1));
+
+        verify(orderService)
+                .getOrdersByCustomer(
+                        eq(customerId),
+                        any(Pageable.class)
+                );
+    }
+    @Test
+    void shouldReturnEmptyPageWhenCustomerHasNoOrders() throws Exception {
+
+        // Given
+        UUID customerId = UUID.randomUUID();
+
+        Page<OrderSummaryResponse> emptyPage =
+                Page.empty();
+
+        when(orderService.getOrdersByCustomer(
+                eq(customerId),
+                any(Pageable.class)))
+                .thenReturn(emptyPage);
+
+        // When + Then
+        mockMvc.perform(
+                        get("/api/orders/customer/{customerId}", customerId)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content").isEmpty())
+                .andExpect(jsonPath("$.totalElements").value(0));
+
+        verify(orderService)
+                .getOrdersByCustomer(
+                        eq(customerId),
+                        any(Pageable.class)
+                );
+    }
 }
