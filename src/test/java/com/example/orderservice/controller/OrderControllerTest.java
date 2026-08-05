@@ -1,9 +1,8 @@
 package com.example.orderservice.controller;
 
-import com.example.orderservice.dto.CreateOrderItemRequest;
-import com.example.orderservice.dto.CreateOrderRequest;
-import com.example.orderservice.dto.CreateOrderResponse;
+import com.example.orderservice.dto.*;
 import com.example.orderservice.entity.OrderStatus;
+import com.example.orderservice.exception.OrderNotFoundException;
 import com.example.orderservice.service.OrderService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -20,7 +19,7 @@ import org.springframework.context.annotation.Import;
 
 import com.example.orderservice.config.SecurityConfig;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -28,8 +27,12 @@ import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -115,5 +118,142 @@ class OrderControllerTest {
 
         verifyNoInteractions(orderService);
     }
+    @Test
+    void shouldReturnOrderWhenOrderExists() throws Exception {
 
+        // Given
+        UUID orderId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        UUID partId = UUID.randomUUID();
+
+        OrderResponse response =
+                new OrderResponse(
+                        orderId,
+                        customerId,
+                        OrderStatus.PENDING,
+                        new BigDecimal("240"),
+                        List.of(),
+                        Instant.now()
+                );
+
+        when(orderService.getOrderById(orderId))
+                .thenReturn(response);
+
+        // When + Then
+        mockMvc.perform(
+                        get("/api/orders/{orderId}", orderId)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.orderId").value(orderId.toString()))
+                .andExpect(jsonPath("$.customerId").value(customerId.toString()))
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.totalAmount").value(240));
+
+        verify(orderService).getOrderById(orderId);
+    }
+    @Test
+    void shouldReturnNotFoundWhenOrderDoesNotExist() throws Exception {
+
+        // Given
+        UUID orderId = UUID.randomUUID();
+
+        when(orderService.getOrderById(orderId))
+                .thenThrow(
+                        new OrderNotFoundException(
+                                "Order not found"
+                        )
+                );
+
+        // When + Then
+        mockMvc.perform(
+                        get("/api/orders/{orderId}", orderId)
+                )
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Order Not Found"))
+                .andExpect(jsonPath("$.detail").value("Order not found"))
+                .andExpect(jsonPath("$.status").value(404));
+
+        verify(orderService).getOrderById(orderId);
+    }
+    @Test
+    void shouldReturnAllOrders() throws Exception {
+
+        // Given
+        UUID orderId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+
+        OrderSummaryResponse response =
+                new OrderSummaryResponse(
+                        orderId,
+                        customerId,
+                        OrderStatus.PENDING,
+                        new BigDecimal("240"),
+                        Instant.now()
+                );
+
+        Page<OrderSummaryResponse> page =
+                new PageImpl<>(List.of(response));
+
+        when(orderService.getAllOrders(
+                isNull(),
+                any(Pageable.class)))
+                .thenReturn(page);
+
+        // When + Then
+        mockMvc.perform(get("/api/orders"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].orderId")
+                        .value(orderId.toString()))
+                .andExpect(jsonPath("$.content[0].status")
+                        .value("PENDING"))
+                .andExpect(jsonPath("$.totalElements")
+                        .value(1));
+
+        verify(orderService)
+                .getAllOrders(
+                        isNull(),
+                        any(Pageable.class)
+                );
+    }
+    @Test
+    void shouldReturnOrdersFilteredByStatus() throws Exception {
+
+        // Given
+        UUID orderId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+
+        OrderSummaryResponse response =
+                new OrderSummaryResponse(
+                        orderId,
+                        customerId,
+                        OrderStatus.PENDING,
+                        new BigDecimal("240"),
+                        Instant.now()
+                );
+
+        Page<OrderSummaryResponse> page =
+                new PageImpl<>(List.of(response));
+
+        when(orderService.getAllOrders(
+                eq(OrderStatus.PENDING),
+                any(Pageable.class)))
+                .thenReturn(page);
+
+        // When + Then
+        mockMvc.perform(
+                        get("/api/orders")
+                                .param("status", "PENDING")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].status")
+                        .value("PENDING"))
+                .andExpect(jsonPath("$.totalElements")
+                        .value(1));
+
+        verify(orderService)
+                .getAllOrders(
+                        eq(OrderStatus.PENDING),
+                        any(Pageable.class)
+                );
+    }
 }
