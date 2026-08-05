@@ -124,4 +124,19 @@ public class OrderService {
         return orderRepository.findByCustomerId(customerId, pageable)
                 .map(orderMapper::toOrderSummaryResponse);
     }
+
+    @Transactional
+    public void transitionOrderStatus(
+            UUID orderId,
+            OrderStatus targetStatus
+    ) {
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() ->
+                        new OrderNotFoundException(
+                                "Order not found with id: " + orderId));
+
+        order.transitionTo(targetStatus);
+    }
+
 }

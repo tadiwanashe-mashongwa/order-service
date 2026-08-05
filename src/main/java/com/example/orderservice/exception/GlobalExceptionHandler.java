@@ -11,7 +11,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(PartNotFoundException.class)
     public ProblemDetail handlePartNotFound(PartNotFoundException ex) {
 
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+        ProblemDetail problem =
+                ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+
         problem.setTitle("Part Not Found");
         problem.setDetail(ex.getMessage());
 
@@ -19,9 +21,13 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(CatalogueUnavailableException.class)
-    public ProblemDetail handleCatalogueUnavailable(CatalogueUnavailableException ex) {
+    public ProblemDetail handleCatalogueUnavailable(
+            CatalogueUnavailableException ex
+    ) {
 
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE);
+        ProblemDetail problem =
+                ProblemDetail.forStatus(HttpStatus.SERVICE_UNAVAILABLE);
+
         problem.setTitle("Catalogue Service Unavailable");
         problem.setDetail(ex.getMessage());
 
@@ -29,10 +35,28 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(OrderNotFoundException.class)
-    public ProblemDetail handleOrderNotFound(OrderNotFoundException ex) {
+    public ProblemDetail handleOrderNotFound(
+            OrderNotFoundException ex
+    ) {
 
-        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+        ProblemDetail problem =
+                ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+
         problem.setTitle("Order Not Found");
+        problem.setDetail(ex.getMessage());
+
+        return problem;
+    }
+
+    @ExceptionHandler(InvalidOrderStatusTransitionException.class)
+    public ProblemDetail handleInvalidTransition(
+            InvalidOrderStatusTransitionException ex
+    ) {
+
+        ProblemDetail problem =
+                ProblemDetail.forStatus(HttpStatus.CONFLICT);
+
+        problem.setTitle("Invalid Order Status Transition");
         problem.setDetail(ex.getMessage());
 
         return problem;
