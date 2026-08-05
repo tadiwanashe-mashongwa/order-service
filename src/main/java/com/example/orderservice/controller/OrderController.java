@@ -4,13 +4,14 @@ import com.example.orderservice.dto.CreateOrderRequest;
 import com.example.orderservice.dto.CreateOrderResponse;
 import com.example.orderservice.dto.OrderResponse;
 import com.example.orderservice.dto.OrderSummaryResponse;
+import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,6 +42,9 @@ public class OrderController {
     @GetMapping
     public Page<OrderSummaryResponse> getAllOrders(
 
+            @RequestParam(required = false)
+            OrderStatus status,
+
             @PageableDefault(
                     size = 10,
                     sort = "createdAt",
@@ -50,7 +54,10 @@ public class OrderController {
 
     ) {
 
-        return orderService.getAllOrders(pageable);
+        return orderService.getAllOrders(
+                status,
+                pageable
+        );
     }
 
     @GetMapping("/customer/{customerId}")

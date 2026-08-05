@@ -103,10 +103,16 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public Page<OrderSummaryResponse> getAllOrders(Pageable pageable) {
+    public Page<OrderSummaryResponse> getAllOrders(
+            OrderStatus status,
+            Pageable pageable
+    ) {
 
-        return orderRepository.findAll(pageable)
-                .map(orderMapper::toOrderSummaryResponse);
+        Page<Order> orders = (status == null)
+                ? orderRepository.findAll(pageable)
+                : orderRepository.findByStatus(status, pageable);
+
+        return orders.map(orderMapper::toOrderSummaryResponse);
     }
 
     @Transactional(readOnly = true)
