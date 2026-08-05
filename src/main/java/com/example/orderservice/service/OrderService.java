@@ -18,6 +18,7 @@ import com.example.orderservice.mapper.OrderMapper;
 import com.example.orderservice.producer.OrderEventProducer;
 import com.example.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OrderService {
@@ -39,6 +41,8 @@ public class OrderService {
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
 
+        log.info("Creating order for customer {}", request.customerId());
+
         Order order = Order.builder()
                 .customerId(request.customerId())
                 .status(OrderStatus.PENDING)
@@ -48,6 +52,8 @@ public class OrderService {
         BigDecimal totalAmount = BigDecimal.ZERO;
 
         for (CreateOrderItemRequest itemRequest : request.items()) {
+
+            log.info("Fetching part {} from catalogue", itemRequest.partId());
 
             ApiResponse<PartResponse> response =
                     catalogueClient.getPartById(itemRequest.partId());
@@ -77,6 +83,8 @@ public class OrderService {
 
         Order savedOrder = orderRepository.save(order);
 
+        log.info("Order {} created successfully", savedOrder.getId());
+
         OrderCreatedEvent event =
                 orderEventMapper.toOrderCreatedEvent(savedOrder);
 
@@ -94,10 +102,14 @@ public class OrderService {
     @Transactional(readOnly = true)
     public OrderResponse getOrderById(UUID orderId) {
 
+        log.info("Fetching order {}", orderId);
+
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() ->
-                        new OrderNotFoundException(
-                                "Order not found with id: " + orderId));
+                .orElseThrow(() -> {
+                    log.warn("Order {} not found", orderId);
+                    return new OrderNotFoundException(
+                            "Order not found with id: " + orderId);
+                });
 
         return orderMapper.toOrderResponse(order);
     }
@@ -107,6 +119,8 @@ public class OrderService {
             OrderStatus status,
             Pageable pageable
     ) {
+
+        log.info("Fetching orders. Status filter={}", status);
 
         Page<Order> orders = (status == null)
                 ? orderRepository.findAll(pageable)
@@ -121,6 +135,8 @@ public class OrderService {
             Pageable pageable
     ) {
 
+        log.info("Fetching orders for customer {}", customerId);
+
         return orderRepository.findByCustomerId(customerId, pageable)
                 .map(orderMapper::toOrderSummaryResponse);
     }
@@ -131,12 +147,17 @@ public class OrderService {
             OrderStatus targetStatus
     ) {
 
+        log.info("Transitioning order {} to {}", orderId, targetStatus);
+
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() ->
-                        new OrderNotFoundException(
-                                "Order not found with id: " + orderId));
+                .orElseThrow(() -> {
+                    log.warn("Order {} not found", orderId);
+                    return new OrderNotFoundException(
+                            "Order not found with id: " + orderId);
+                });
 
         order.transitionTo(targetStatus);
-    }
 
+        log.info("Order {} transitioned to {}", orderId, targetStatus);
+    }
 }

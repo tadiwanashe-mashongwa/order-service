@@ -6,9 +6,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.Response;
 import feign.codec.ErrorDecoder;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
+@Slf4j
 @RequiredArgsConstructor
 public class CatalogueErrorDecoder implements ErrorDecoder {
 
@@ -25,6 +27,13 @@ public class CatalogueErrorDecoder implements ErrorDecoder {
                             ApiResponse.class
                     );
 
+            log.warn(
+                    "Catalogue service returned {} for {} : {}",
+                    response.status(),
+                    methodKey,
+                    error.message()
+            );
+
             return switch (response.status()) {
 
                 case 404 ->
@@ -40,9 +49,10 @@ public class CatalogueErrorDecoder implements ErrorDecoder {
 
         } catch (IOException e) {
 
+            log.error("Failed to decode catalogue error response", e);
+
             return new ErrorDecoder.Default()
                     .decode(methodKey, response);
-
         }
     }
 }
