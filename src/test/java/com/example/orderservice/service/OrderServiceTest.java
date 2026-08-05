@@ -7,9 +7,11 @@ import com.example.orderservice.client.PartResponse;
 import com.example.orderservice.dto.CreateOrderItemRequest;
 import com.example.orderservice.dto.CreateOrderRequest;
 import com.example.orderservice.dto.CreateOrderResponse;
+import com.example.orderservice.dto.OrderResponse;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.event.OrderCreatedEvent;
+import com.example.orderservice.exception.OrderNotFoundException;
 import com.example.orderservice.exception.PartNotFoundException;
 import com.example.orderservice.mapper.OrderEventMapper;
 import com.example.orderservice.mapper.OrderMapper;
@@ -199,5 +201,59 @@ class OrderServiceTest {
 
         verify(orderEventProducer, never())
                 .publishOrderCreated(any());
+    }
+    @Test
+    void shouldReturnOrderWhenOrderExists() {
+
+        // Arrange
+        UUID orderId = UUID.randomUUID();
+
+        Order order = Order.builder()
+                .id(orderId)
+                .build();
+
+        OrderResponse response = mock(OrderResponse.class);
+
+        when(orderRepository.findById(orderId))
+                .thenReturn(Optional.of(order));
+
+        when(orderMapper.toOrderResponse(order))
+                .thenReturn(response);
+
+        // Act
+        OrderResponse result = orderService.getOrderById(orderId);
+
+        // Assert
+        assertSame(response, result);
+
+        verify(orderRepository).findById(orderId);
+        verify(orderMapper).toOrderResponse(order);
+
+        verifyNoMoreInteractions(
+                orderRepository,
+                orderMapper
+        );
+    }
+    @Test
+    void shouldThrowOrderNotFoundExceptionWhenOrderDoesNotExist() {
+
+        // Arrange
+        UUID orderId = UUID.randomUUID();
+
+        when(orderRepository.findById(orderId))
+                .thenReturn(Optional.empty());
+
+        // Act + Assert
+        assertThrows(
+                OrderNotFoundException.class,
+                () -> orderService.getOrderById(orderId)
+        );
+
+        verify(orderRepository).findById(orderId);
+
+        verify(orderMapper, never())
+                .toOrderResponse(any());
+
+        verifyNoMoreInteractions(orderRepository);
     }
 }
