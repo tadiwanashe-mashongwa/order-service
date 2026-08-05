@@ -1,11 +1,11 @@
 package com.example.orderservice.client;
 
-import lombok.RequiredArgsConstructor;
-import tools.jackson.databind.ObjectMapper;
 import com.example.orderservice.exception.CatalogueUnavailableException;
 import com.example.orderservice.exception.PartNotFoundException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.Response;
 import feign.codec.ErrorDecoder;
+import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
 
@@ -45,5 +45,4 @@ public class CatalogueErrorDecoder implements ErrorDecoder {
 
         }
     }
-
 }

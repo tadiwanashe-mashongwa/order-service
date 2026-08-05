@@ -15,6 +15,7 @@ import com.example.orderservice.producer.OrderEventProducer;
 import com.example.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
@@ -27,6 +28,7 @@ public class OrderService {
     private final OrderEventMapper orderEventMapper;
     private final OrderEventProducer orderEventProducer;
 
+    @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
 
         Order order = Order.builder()
@@ -43,7 +45,7 @@ public class OrderService {
             ApiResponse<PartResponse> response =
                     catalogueClient.getPartById(itemRequest.partId());
 
-            // Extract the part-
+            // Extract the part
             PartResponse part = response.data();
 
             // Convert MoneyResponse -> BigDecimal
@@ -73,6 +75,7 @@ public class OrderService {
         order.setTotalAmount(totalAmount);
 
         Order savedOrder = orderRepository.save(order);
+
         OrderCreatedEvent event =
                 orderEventMapper.toOrderCreatedEvent(savedOrder);
 
