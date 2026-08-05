@@ -6,11 +6,15 @@ import com.example.orderservice.client.PartResponse;
 import com.example.orderservice.dto.CreateOrderItemRequest;
 import com.example.orderservice.dto.CreateOrderRequest;
 import com.example.orderservice.dto.CreateOrderResponse;
+import com.example.orderservice.dto.OrderResponse;
+import com.example.orderservice.dto.OrderSummaryResponse;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderItem;
 import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.event.OrderCreatedEvent;
+import com.example.orderservice.exception.OrderNotFoundException;
 import com.example.orderservice.mapper.OrderEventMapper;
+import com.example.orderservice.mapper.OrderMapper;
 import com.example.orderservice.producer.OrderEventProducer;
 import com.example.orderservice.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +22,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +32,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final CatalogueClient catalogueClient;
     private final OrderEventMapper orderEventMapper;
+    private final OrderMapper orderMapper;
     private final OrderEventProducer orderEventProducer;
 
     @Transactional
@@ -41,24 +48,17 @@ public class OrderService {
 
         for (CreateOrderItemRequest itemRequest : request.items()) {
 
-            // Call Catalogue Service
             ApiResponse<PartResponse> response =
                     catalogueClient.getPartById(itemRequest.partId());
 
-            // Extract the part
             PartResponse part = response.data();
 
-            // Convert MoneyResponse -> BigDecimal
-            BigDecimal unitPrice = BigDecimal.valueOf(
-                    part.price().amount()
-            );
+            BigDecimal unitPrice =
+                    BigDecimal.valueOf(part.price().amount());
 
-            // Calculate subtotal
-            BigDecimal subtotal = unitPrice.multiply(
-                    BigDecimal.valueOf(itemRequest.quantity())
-            );
+            BigDecimal subtotal =
+                    unitPrice.multiply(BigDecimal.valueOf(itemRequest.quantity()));
 
-            // Create OrderItem
             OrderItem orderItem = OrderItem.builder()
                     .partId(itemRequest.partId())
                     .partName(part.name())
@@ -88,5 +88,34 @@ public class OrderService {
                 savedOrder.getTotalAmount(),
                 savedOrder.getCreatedAt()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public OrderResponse getOrderById(UUID orderId) {
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() ->
+                        new OrderNotFoundException(
+                                "Order not found with id: " + orderId));
+
+        return orderMapper.toOrderResponse(order);
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderSummaryResponse> getAllOrders() {
+
+        return orderRepository.findAllSorted()
+                .stream()
+                .map(orderMapper::toOrderSummaryResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrderSummaryResponse> getOrdersByCustomer(UUID customerId) {
+
+        return orderRepository.findByCustomerId(customerId)
+                .stream()
+                .map(orderMapper::toOrderSummaryResponse)
+                .toList();
     }
 }
