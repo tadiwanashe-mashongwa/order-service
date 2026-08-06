@@ -23,51 +23,80 @@ class OrderRepositoryTest extends AbstractPostgresContainerTest {
 
     @Autowired
     private OrderRepository orderRepository;
+    private Order createOrder(
+            UUID customerId,
+            OrderStatus status,
+            BigDecimal totalAmount
+    ) {
+        return Order.builder()
+                .customerId(customerId)
+                .status(status)
+                .totalAmount(totalAmount)
+                .build();
+    }
 
     @Test
-    void shouldFindOrdersByCustomerId() {
+    void shouldFindOrdersByStatus() {
 
         // Given
-        UUID customerId = UUID.randomUUID();
+        orderRepository.save(
+                createOrder(
+                        UUID.randomUUID(),
+                        OrderStatus.PENDING,
+                        new BigDecimal("100.00")
+                )
+        );
 
-        Order order = Order.builder()
-                .customerId(customerId)
-                .status(OrderStatus.PENDING)
-                .totalAmount(new BigDecimal("250.00"))
-                .build();
+        orderRepository.save(
+                createOrder(
+                        UUID.randomUUID(),
+                        OrderStatus.PENDING,
+                        new BigDecimal("250.00")
+                )
+        );
 
-        orderRepository.save(order);
+        orderRepository.save(
+                createOrder(
+                        UUID.randomUUID(),
+                        OrderStatus.PAID,
+                        new BigDecimal("500.00")
+                )
+        );
 
         // When
         Page<Order> result =
-                orderRepository.findByCustomerId(
-                        customerId,
+                orderRepository.findByStatus(
+                        OrderStatus.PENDING,
                         PageRequest.of(0, 10)
                 );
 
         // Then
-        assertEquals(1, result.getTotalElements());
+        assertEquals(2, result.getTotalElements());
 
-        Order found = result.getContent().getFirst();
-
-        assertEquals(customerId, found.getCustomerId());
-        assertEquals(OrderStatus.PENDING, found.getStatus());
-        assertEquals(
-                new BigDecimal("250.00"),
-                found.getTotalAmount()
+        assertTrue(
+                result.getContent()
+                        .stream()
+                        .allMatch(order ->
+                                order.getStatus() == OrderStatus.PENDING)
         );
     }
 
     @Test
-    void shouldReturnEmptyPageWhenCustomerHasNoOrders() {
+    void shouldReturnEmptyPageWhenStatusDoesNotExist() {
 
         // Given
-        UUID customerId = UUID.randomUUID();
+        orderRepository.save(
+                createOrder(
+                        UUID.randomUUID(),
+                        OrderStatus.PAID,
+                        new BigDecimal("200.00")
+                )
+        );
 
         // When
         Page<Order> result =
-                orderRepository.findByCustomerId(
-                        customerId,
+                orderRepository.findByStatus(
+                        OrderStatus.CANCELLED,
                         PageRequest.of(0, 10)
                 );
 
@@ -75,4 +104,74 @@ class OrderRepositoryTest extends AbstractPostgresContainerTest {
         assertTrue(result.isEmpty());
     }
 
+    @Test
+    void shouldFindOrdersByCustomerId() {
+
+        // Given
+        UUID customerId = UUID.randomUUID();
+
+        orderRepository.save(
+                createOrder(
+                        customerId,
+                        OrderStatus.PENDING,
+                        new BigDecimal("150.00")
+                )
+        );
+
+        orderRepository.save(
+                createOrder(
+                        customerId,
+                        OrderStatus.PAID,
+                        new BigDecimal("350.00")
+                )
+        );
+
+        orderRepository.save(
+                createOrder(
+                        UUID.randomUUID(),
+                        OrderStatus.PENDING,
+                        new BigDecimal("500.00")
+                )
+        );
+
+        // When
+        Page<Order> result =
+                orderRepository.findByCustomerId(
+                        customerId,
+                        PageRequest.of(0, 10)
+                );
+
+        // Then
+        assertEquals(2, result.getTotalElements());
+
+        assertTrue(
+                result.getContent()
+                        .stream()
+                        .allMatch(order ->
+                                order.getCustomerId().equals(customerId))
+        );
+    }
+
+    @Test
+    void shouldReturnEmptyPageWhenCustomerHasNoOrders() {
+
+        // Given
+        orderRepository.save(
+                createOrder(
+                        UUID.randomUUID(),
+                        OrderStatus.PENDING,
+                        new BigDecimal("250.00")
+                )
+        );
+
+        // When
+        Page<Order> result =
+                orderRepository.findByCustomerId(
+                        UUID.randomUUID(),
+                        PageRequest.of(0, 10)
+                );
+
+        // Then
+        assertTrue(result.isEmpty());
+    }
 }
