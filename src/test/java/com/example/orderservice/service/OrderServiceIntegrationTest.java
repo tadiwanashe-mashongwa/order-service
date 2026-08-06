@@ -10,6 +10,7 @@ import com.example.orderservice.dto.CreateOrderRequest;
 import com.example.orderservice.dto.CreateOrderResponse;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderStatus;
+import com.example.orderservice.exception.CatalogueUnavailableException;
 import com.example.orderservice.exception.PartNotFoundException;
 import com.example.orderservice.producer.OrderEventProducer;
 import com.example.orderservice.repository.OrderRepository;
@@ -145,6 +146,121 @@ class OrderServiceIntegrationTest extends AbstractPostgresContainerTest {
                         "Brake Pads",
                         new MoneyResponse(
                                 250,
+                                "USD"
+                        )
+                );
+
+        return new ApiResponse<>(
+                true,
+                "Success",
+                part,
+                Instant.now()
+        );
+    }
+    @Test
+    void shouldThrowCatalogueUnavailableWhenCatalogueIsDown() {
+
+        // Given
+        CreateOrderRequest request = createRequest();
+
+        when(catalogueClient.getPartById(any()))
+                .thenThrow(
+                        new CatalogueUnavailableException(
+                                "Catalogue unavailable"
+                        )
+                );
+
+        // When + Then
+        assertThrows(
+                CatalogueUnavailableException.class,
+                () -> orderService.createOrder(request)
+        );
+
+        assertEquals(
+                0,
+                orderRepository.count()
+        );
+
+        verify(orderEventProducer, never())
+                .publishOrderCreated(any());
+    }
+    @Test
+    void shouldCreateOrderWithMultipleItems() {
+
+        // Given
+        UUID brakePadsId = UUID.randomUUID();
+        UUID oilFilterId = UUID.randomUUID();
+
+        CreateOrderRequest request =
+                new CreateOrderRequest(
+                        UUID.randomUUID(),
+                        List.of(
+                                new CreateOrderItemRequest(
+                                        brakePadsId,
+                                        2
+                                ),
+                                new CreateOrderItemRequest(
+                                        oilFilterId,
+                                        3
+                                )
+                        )
+                );
+
+        when(catalogueClient.getPartById(brakePadsId))
+                .thenReturn(
+                        createCatalogueResponse(
+                                brakePadsId,
+                                "Brake Pads",
+                                250
+                        )
+                );
+
+        when(catalogueClient.getPartById(oilFilterId))
+                .thenReturn(
+                        createCatalogueResponse(
+                                oilFilterId,
+                                "Oil Filter",
+                                100
+                        )
+                );
+
+        // When
+        CreateOrderResponse response =
+                orderService.createOrder(request);
+
+        // Then
+        Order persisted =
+                orderRepository.findById(response.orderId())
+                        .orElseThrow();
+
+        assertEquals(
+                new BigDecimal("800"),
+                persisted.getTotalAmount()
+        );
+
+        assertEquals(
+                2,
+                persisted.getItems().size()
+        );
+
+        verify(catalogueClient, times(2))
+                .getPartById(any());
+
+        verify(orderEventProducer)
+                .publishOrderCreated(any());
+    }
+    private ApiResponse<PartResponse> createCatalogueResponse(
+            UUID partId,
+            String partName,
+            long amount
+    ) {
+
+        PartResponse part =
+                new PartResponse(
+                        partId,
+                        partName,
+                        new MoneyResponse(
+                                amount,
                                 "USD"
                         )
                 );
