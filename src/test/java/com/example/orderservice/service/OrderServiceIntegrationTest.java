@@ -1,0 +1,159 @@
+package com.example.orderservice.service;
+
+import com.example.orderservice.client.ApiResponse;
+import com.example.orderservice.client.CatalogueClient;
+import com.example.orderservice.client.MoneyResponse;
+import com.example.orderservice.client.PartResponse;
+import com.example.orderservice.config.AbstractPostgresContainerTest;
+import com.example.orderservice.dto.CreateOrderItemRequest;
+import com.example.orderservice.dto.CreateOrderRequest;
+import com.example.orderservice.dto.CreateOrderResponse;
+import com.example.orderservice.entity.Order;
+import com.example.orderservice.entity.OrderStatus;
+import com.example.orderservice.exception.PartNotFoundException;
+import com.example.orderservice.producer.OrderEventProducer;
+import com.example.orderservice.repository.OrderRepository;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@SpringBootTest
+@AutoConfigureTestDatabase(
+        replace = AutoConfigureTestDatabase.Replace.NONE
+)
+@Transactional
+class OrderServiceIntegrationTest extends AbstractPostgresContainerTest {
+
+    @Autowired
+    private OrderService orderService;
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @MockitoBean
+    private CatalogueClient catalogueClient;
+
+    @MockitoBean
+    private OrderEventProducer orderEventProducer;
+
+    @Test
+    void shouldCreateOrderSuccessfully() {
+
+        // Given
+        CreateOrderRequest request = createRequest();
+
+        when(catalogueClient.getPartById(any()))
+                .thenReturn(createCatalogueResponse());
+
+        // When
+        CreateOrderResponse response =
+                orderService.createOrder(request);
+
+        // Then
+        assertNotNull(response.orderId());
+        assertEquals(request.customerId(), response.customerId());
+        assertEquals(OrderStatus.PENDING, response.status());
+        assertEquals(
+                new BigDecimal("250"),
+                response.totalAmount()
+        );
+
+        Order persisted =
+                orderRepository.findById(response.orderId())
+                        .orElseThrow();
+
+        assertEquals(
+                OrderStatus.PENDING,
+                persisted.getStatus()
+        );
+
+        assertEquals(
+                new BigDecimal("250"),
+                persisted.getTotalAmount()
+        );
+
+        assertEquals(
+                1,
+                persisted.getItems().size()
+        );
+
+        verify(catalogueClient)
+                .getPartById(any());
+
+        verify(orderEventProducer)
+                .publishOrderCreated(any());
+    }
+
+    @Test
+    void shouldThrowPartNotFoundWhenCatalogueReturns404() {
+
+        // Given
+        CreateOrderRequest request = createRequest();
+
+        when(catalogueClient.getPartById(any()))
+                .thenThrow(
+                        new PartNotFoundException(
+                                "Part not found"
+                        )
+                );
+
+        // When + Then
+        assertThrows(
+                PartNotFoundException.class,
+                () -> orderService.createOrder(request)
+        );
+
+        assertEquals(
+                0,
+                orderRepository.count()
+        );
+
+        verify(orderEventProducer, never())
+                .publishOrderCreated(any());
+    }
+
+    private CreateOrderRequest createRequest() {
+
+        return new CreateOrderRequest(
+                UUID.randomUUID(),
+                List.of(
+                        new CreateOrderItemRequest(
+                                UUID.randomUUID(),
+                                1
+                        )
+                )
+        );
+    }
+
+    private ApiResponse<PartResponse> createCatalogueResponse() {
+
+        PartResponse part =
+                new PartResponse(
+                        UUID.randomUUID(),
+                        "Brake Pads",
+                        new MoneyResponse(
+                                250,
+                                "USD"
+                        )
+                );
+
+        return new ApiResponse<>(
+                true,
+                "Success",
+                part,
+                Instant.now()
+        );
+    }
+}
