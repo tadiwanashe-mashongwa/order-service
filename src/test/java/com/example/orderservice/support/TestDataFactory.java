@@ -104,5 +104,23 @@ public final class TestDataFactory {
                 }
                 """;
     }
+    public static CreateOrderRequest multiItemOrderRequest(
+            UUID firstPartId,
+            UUID secondPartId
+    ) {
+        return new CreateOrderRequest(
+                UUID.randomUUID(),
+                List.of(
+                        new CreateOrderItemRequest(
+                                firstPartId,
+                                1
+                        ),
+                        new CreateOrderItemRequest(
+                                secondPartId,
+                                2
+                        )
+                )
+        );
+    }
 
 }
