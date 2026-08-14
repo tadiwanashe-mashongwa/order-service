@@ -78,4 +78,11 @@ public class OutboxEvent {
             nextAttemptAt = Instant.now().plusSeconds(1L << (attemptCount - 1));
         }
     }
+
+    public void requeue() {
+        deadLettered = false;
+        attemptCount = 0;
+        lastError = null;
+        nextAttemptAt = Instant.now();
+    }
 }

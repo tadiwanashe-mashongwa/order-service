@@ -141,6 +141,16 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(OutboxEventNotFoundException.class)
+    public ProblemDetail handleOutboxEventNotFound(
+            OutboxEventNotFoundException ex
+    ) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.NOT_FOUND);
+        problem.setTitle("Outbox Event Not Found");
+        problem.setDetail(ex.getMessage());
+        return problem;
+    }
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleUnexpectedException(Exception ex) {
 

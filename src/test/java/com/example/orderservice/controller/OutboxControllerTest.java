@@ -2,6 +2,7 @@ package com.example.orderservice.controller;
 
 import com.example.orderservice.config.SecurityConfig;
 import com.example.orderservice.dto.DeadLetteredOutboxEventResponse;
+import com.example.orderservice.exception.OutboxEventNotFoundException;
 import com.example.orderservice.service.OutboxService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,7 +20,9 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -61,5 +64,31 @@ class OutboxControllerTest {
                         .value("Kafka is unavailable"));
 
         verify(outboxService).getDeadLetteredEvents(any());
+    }
+
+    @Test
+    void shouldRequeueDeadLetteredOutboxEvent() throws Exception {
+
+        UUID eventId = UUID.randomUUID();
+
+        mockMvc.perform(post("/api/outbox/{eventId}/requeue", eventId))
+                .andExpect(status().isNoContent());
+
+        verify(outboxService).requeueDeadLetteredEvent(eventId);
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenRequeueingUnknownOutboxEvent() throws Exception {
+
+        UUID eventId = UUID.randomUUID();
+        doThrow(new OutboxEventNotFoundException("Outbox event not found"))
+                .when(outboxService)
+                .requeueDeadLetteredEvent(eventId);
+
+        mockMvc.perform(post("/api/outbox/{eventId}/requeue", eventId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Outbox Event Not Found"));
+
+        verify(outboxService).requeueDeadLetteredEvent(eventId);
     }
 }
