@@ -56,7 +56,7 @@ class OutboxRelayTest {
                 .build();
 
         when(outboxEventRepository
-                .findTop100ByPublishedFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+                .findTop100ByPublishedFalseAndDeadLetteredFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
                         any(Instant.class)
                 ))
                 .thenReturn(List.of(outboxEvent));
@@ -90,7 +90,7 @@ class OutboxRelayTest {
                 .build();
 
         when(outboxEventRepository
-                .findTop100ByPublishedFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+                .findTop100ByPublishedFalseAndDeadLetteredFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
                         any(Instant.class)
                 ))
                 .thenReturn(List.of(outboxEvent));
@@ -112,6 +112,44 @@ class OutboxRelayTest {
     }
 
     @Test
+    void shouldDeadLetterEventAfterThirdKafkaPublishingFailure()
+            throws Exception {
+
+        OrderCreatedEvent event = new OrderCreatedEvent(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                List.of()
+        );
+        OutboxEvent outboxEvent = OutboxEvent.builder()
+                .aggregateId(event.orderId())
+                .topic("order-created")
+                .eventType(OrderCreatedEvent.class.getSimpleName())
+                .payload("{...}")
+                .attemptCount(2)
+                .build();
+
+        when(outboxEventRepository
+                .findTop100ByPublishedFalseAndDeadLetteredFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+                        any(Instant.class)
+                ))
+                .thenReturn(List.of(outboxEvent));
+        when(objectMapper.readValue(
+                outboxEvent.getPayload(),
+                OrderCreatedEvent.class
+        )).thenReturn(event);
+        when(orderEventProducer.publishOrderCreated(event))
+                .thenReturn(CompletableFuture.failedFuture(
+                        new RuntimeException("Kafka is unavailable")
+                ));
+
+        outboxRelay.publishPendingEvents();
+
+        assertFalse(outboxEvent.isPublished());
+        assertTrue(outboxEvent.isDeadLettered());
+        assertTrue(outboxEvent.getAttemptCount() == 3);
+    }
+
+    @Test
     void shouldPublishPendingOrderStatusChangedEventAndMarkItPublished()
             throws Exception {
 
@@ -130,7 +168,7 @@ class OutboxRelayTest {
                 .build();
 
         when(outboxEventRepository
-                .findTop100ByPublishedFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+                .findTop100ByPublishedFalseAndDeadLetteredFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
                         any(Instant.class)
                 ))
                 .thenReturn(List.of(outboxEvent));

@@ -27,11 +27,23 @@ class OutboxEventRepositoryTest extends AbstractPostgresContainerTest {
         Instant now = Instant.now();
         OutboxEvent dueEvent = createEvent(now.minusSeconds(1));
         OutboxEvent futureEvent = createEvent(now.plusSeconds(60));
+        OutboxEvent deadLetteredEvent = OutboxEvent.builder()
+                .aggregateId(UUID.randomUUID())
+                .topic("order-created")
+                .eventType("OrderCreatedEvent")
+                .payload("{}")
+                .nextAttemptAt(now.minusSeconds(1))
+                .deadLettered(true)
+                .build();
 
-        outboxEventRepository.saveAll(List.of(dueEvent, futureEvent));
+        outboxEventRepository.saveAll(
+                List.of(dueEvent, futureEvent, deadLetteredEvent)
+        );
 
         List<OutboxEvent> result = outboxEventRepository
-                .findTop100ByPublishedFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(now);
+                .findTop100ByPublishedFalseAndDeadLetteredFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+                        now
+                );
 
         assertEquals(List.of(dueEvent.getId()),
                 result.stream().map(OutboxEvent::getId).toList());

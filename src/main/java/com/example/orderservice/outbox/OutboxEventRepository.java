@@ -10,7 +10,7 @@ public interface OutboxEventRepository
         extends JpaRepository<OutboxEvent, UUID> {
 
     List<OutboxEvent>
-    findTop100ByPublishedFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+    findTop100ByPublishedFalseAndDeadLetteredFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
             Instant nextAttemptAt
     );
 }

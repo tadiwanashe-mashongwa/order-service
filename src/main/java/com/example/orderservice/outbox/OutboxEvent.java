@@ -22,6 +22,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class OutboxEvent {
 
+    private static final int MAX_ATTEMPTS = 3;
+
     @Id
     @UuidGenerator
     private UUID id;
@@ -46,6 +48,10 @@ public class OutboxEvent {
     @Column(nullable = false)
     private int attemptCount = 0;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean deadLettered = false;
+
     @Column(columnDefinition = "TEXT")
     private String lastError;
 
@@ -66,6 +72,10 @@ public class OutboxEvent {
         lastError = exception.getCause() == null
                 ? exception.getMessage()
                 : exception.getCause().getMessage();
-        nextAttemptAt = Instant.now().plusSeconds(1);
+        if (attemptCount >= MAX_ATTEMPTS) {
+            deadLettered = true;
+        } else {
+            nextAttemptAt = Instant.now().plusSeconds(1);
+        }
     }
 }

@@ -26,7 +26,7 @@ public class OutboxRelay {
     public void publishPendingEvents() {
         for (OutboxEvent outboxEvent :
                 outboxEventRepository
-                        .findTop100ByPublishedFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+                        .findTop100ByPublishedFalseAndDeadLetteredFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
                                 Instant.now()
                         )) {
             try {
