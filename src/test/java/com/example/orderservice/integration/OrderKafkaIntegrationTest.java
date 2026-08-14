@@ -1,9 +1,20 @@
 package com.example.orderservice.integration;
 
 import com.example.orderservice.config.KafkaTestContainer;
+import com.example.orderservice.client.ApiResponse;
+import com.example.orderservice.client.CatalogueClient;
+import com.example.orderservice.client.MoneyResponse;
+import com.example.orderservice.client.PartResponse;
+import com.example.orderservice.dto.CreateOrderItemRequest;
+import com.example.orderservice.dto.CreateOrderRequest;
+import com.example.orderservice.dto.CreateOrderResponse;
 import com.example.orderservice.event.OrderCreatedEvent;
 import com.example.orderservice.event.OrderItemEvent;
+import com.example.orderservice.outbox.OutboxEvent;
+import com.example.orderservice.outbox.OutboxEventRepository;
+import com.example.orderservice.outbox.OutboxRelay;
 import com.example.orderservice.producer.OrderEventProducer;
+import com.example.orderservice.service.OrderService;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -16,17 +27,23 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.time.Instant;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.when;
 
 @SpringBootTest
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class OrderKafkaIntegrationTest extends KafkaTestContainer {
 
     @Autowired
@@ -34,6 +51,18 @@ class OrderKafkaIntegrationTest extends KafkaTestContainer {
 
     @Autowired
     private KafkaProperties kafkaProperties;
+
+    @Autowired
+    private OrderService orderService;
+
+    @Autowired
+    private OutboxRelay outboxRelay;
+
+    @Autowired
+    private OutboxEventRepository outboxEventRepository;
+
+    @MockitoBean
+    private CatalogueClient catalogueClient;
 
     private Consumer<String, String> consumer;
 
@@ -89,5 +118,48 @@ class OrderKafkaIntegrationTest extends KafkaTestContainer {
         assertEquals(orderId.toString(), record.key());
         assertTrue(record.value().contains("\"orderId\":\"" + orderId + "\""));
         assertTrue(record.value().contains("\"customerId\":\"" + customerId + "\""));
+    }
+
+    @Test
+    void shouldRelayCreatedOrderFromOutboxToKafka() {
+        UUID partId = UUID.randomUUID();
+        CreateOrderRequest request = new CreateOrderRequest(
+                UUID.randomUUID(),
+                List.of(new CreateOrderItemRequest(partId, 1))
+        );
+        when(catalogueClient.getPartById(partId)).thenReturn(
+                new ApiResponse<>(
+                        true,
+                        "Success",
+                        new PartResponse(
+                                partId,
+                                "Brake Pads",
+                                new MoneyResponse(250, "USD")
+                        ),
+                        Instant.now()
+                )
+        );
+
+        CreateOrderResponse order = orderService.createOrder(request);
+
+        OutboxEvent pendingEvent = outboxEventRepository.findAll().getFirst();
+        assertFalse(pendingEvent.isPublished());
+
+        outboxRelay.publishPendingEvents();
+
+        ConsumerRecords<String, String> records =
+                consumer.poll(Duration.ofSeconds(10));
+        boolean receivedOrderEvent = false;
+        for (ConsumerRecord<String, String> record :
+                records.records("order-created")) {
+            if (record.key().equals(order.orderId().toString())) {
+                receivedOrderEvent = true;
+                break;
+            }
+        }
+        assertTrue(receivedOrderEvent);
+
+        OutboxEvent outboxEvent = outboxEventRepository.findAll().getFirst();
+        assertTrue(outboxEvent.isPublished());
     }
 }
