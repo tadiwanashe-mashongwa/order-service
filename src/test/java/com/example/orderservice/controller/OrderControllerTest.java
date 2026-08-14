@@ -120,6 +120,29 @@ class OrderControllerTest {
 
         verifyNoInteractions(orderService);
     }
+
+    @Test
+    void shouldReturnBadRequestWhenOrderRequestJsonIsMalformed() throws Exception {
+
+        String malformedRequest = """
+                {
+                  "customerId": "not-a-uuid",
+                  "items": []
+                }
+                """;
+
+        mockMvc.perform(
+                        post("/api/orders")
+                                .contentType(APPLICATION_JSON)
+                                .content(malformedRequest)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title")
+                        .value("Malformed Request"))
+                .andExpect(jsonPath("$.status").value(400));
+
+        verifyNoInteractions(orderService);
+    }
     @Test
     void shouldReturnOrderWhenOrderExists() throws Exception {
 
@@ -398,5 +421,19 @@ class OrderControllerTest {
                 orderId,
                 OrderStatus.STOCK_RESERVED
         );
+    }
+
+    @Test
+    void shouldReturnBadRequestForUnknownOrderStatus() throws Exception {
+
+        mockMvc.perform(
+                        patch("/api/orders/{orderId}/status", UUID.randomUUID())
+                                .param("status", "UNKNOWN")
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Invalid Request"))
+                .andExpect(jsonPath("$.status").value(400));
+
+        verifyNoInteractions(orderService);
     }
 }
