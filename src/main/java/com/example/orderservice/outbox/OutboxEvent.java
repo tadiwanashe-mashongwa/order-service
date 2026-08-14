@@ -75,7 +75,7 @@ public class OutboxEvent {
         if (attemptCount >= MAX_ATTEMPTS) {
             deadLettered = true;
         } else {
-            nextAttemptAt = Instant.now().plusSeconds(1);
+            nextAttemptAt = Instant.now().plusSeconds(1L << (attemptCount - 1));
         }
     }
 }
