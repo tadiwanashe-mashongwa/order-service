@@ -42,11 +42,25 @@ public class OutboxEvent {
     @Column(nullable = false)
     private boolean published = false;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private int attemptCount = 0;
+
+    @Column(columnDefinition = "TEXT")
+    private String lastError;
+
     @Column(nullable = false, updatable = false)
     @CreationTimestamp
     private Instant createdAt;
 
     public void markPublished() {
         published = true;
+    }
+
+    public void recordFailure(Exception exception) {
+        attemptCount++;
+        lastError = exception.getCause() == null
+                ? exception.getMessage()
+                : exception.getCause().getMessage();
     }
 }

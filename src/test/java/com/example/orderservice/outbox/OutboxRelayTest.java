@@ -18,7 +18,6 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -71,7 +70,7 @@ class OutboxRelayTest {
     }
 
     @Test
-    void shouldLeaveEventUnpublishedWhenKafkaPublishingFails()
+    void shouldRecordFailureWhenKafkaPublishingFails()
             throws Exception {
 
         OrderCreatedEvent event = new OrderCreatedEvent(
@@ -98,12 +97,11 @@ class OutboxRelayTest {
                         new RuntimeException("Kafka is unavailable")
                 ));
 
-        assertThrows(
-                IllegalStateException.class,
-                () -> outboxRelay.publishPendingEvents()
-        );
+        outboxRelay.publishPendingEvents();
 
         assertFalse(outboxEvent.isPublished());
+        assertTrue(outboxEvent.getAttemptCount() == 1);
+        assertTrue(outboxEvent.getLastError().contains("Kafka is unavailable"));
     }
 
     @Test

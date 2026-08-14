@@ -25,8 +25,12 @@ public class OutboxRelay {
     public void publishPendingEvents() {
         for (OutboxEvent outboxEvent :
                 outboxEventRepository.findTop100ByPublishedFalseOrderByCreatedAtAsc()) {
-            publish(outboxEvent);
-            outboxEvent.markPublished();
+            try {
+                publish(outboxEvent);
+                outboxEvent.markPublished();
+            } catch (IllegalStateException exception) {
+                outboxEvent.recordFailure(exception);
+            }
         }
     }
 
