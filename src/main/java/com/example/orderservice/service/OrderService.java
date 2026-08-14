@@ -17,7 +17,6 @@ import com.example.orderservice.mapper.OrderEventMapper;
 import com.example.orderservice.mapper.OrderMapper;
 import com.example.orderservice.outbox.OutboxEvent;
 import com.example.orderservice.outbox.OutboxEventRepository;
-import com.example.orderservice.producer.OrderEventProducer;
 import com.example.orderservice.repository.OrderRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,7 +39,6 @@ public class OrderService {
     private final CatalogueClient catalogueClient;
     private final OrderEventMapper orderEventMapper;
     private final OrderMapper orderMapper;
-    private final OrderEventProducer orderEventProducer;
     private final OutboxEventRepository outboxEventRepository;
     private final ObjectMapper objectMapper;
 
@@ -102,8 +100,6 @@ public class OrderService {
                         .payload(serialize(event))
                         .build()
         );
-
-        orderEventProducer.publishOrderCreated(event);
 
         return new CreateOrderResponse(
                 savedOrder.getId(),

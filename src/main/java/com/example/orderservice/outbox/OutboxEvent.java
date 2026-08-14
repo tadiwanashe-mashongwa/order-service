@@ -45,4 +45,8 @@ public class OutboxEvent {
     @Column(nullable = false, updatable = false)
     @CreationTimestamp
     private Instant createdAt;
+
+    public void markPublished() {
+        published = true;
+    }
 }

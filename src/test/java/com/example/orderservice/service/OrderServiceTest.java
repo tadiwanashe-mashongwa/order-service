@@ -175,10 +175,7 @@ class OrderServiceTest {
         verify(orderEventMapper)
                 .toOrderCreatedEvent(savedOrder);
 
-        verify(orderEventProducer)
-                .publishOrderCreated(event);
-
-        verifyNoMoreInteractions(orderEventProducer);
+        verifyNoInteractions(orderEventProducer);
     }
     @Test
     void shouldThrowPartNotFoundExceptionWhenPartDoesNotExist() {

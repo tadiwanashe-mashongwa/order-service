@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @SpringBootTest
 @AutoConfigureTestDatabase(
@@ -89,8 +90,7 @@ class OrderFeignIntegrationTest extends AbstractWireMockTest {
                 partId
         );
 
-        verify(orderEventProducer)
-                .publishOrderCreated(any());
+        verifyNoInteractions(orderEventProducer);
     }
     @Test
     void shouldThrowPartNotFoundWhenFeignReceives404() {
@@ -209,8 +209,7 @@ class OrderFeignIntegrationTest extends AbstractWireMockTest {
                 part2
         );
 
-        verify(orderEventProducer)
-                .publishOrderCreated(any());
+        verifyNoInteractions(orderEventProducer);
     }
     @Test
     void shouldCallCatalogueOncePerRequestedPart() {
@@ -255,7 +254,6 @@ class OrderFeignIntegrationTest extends AbstractWireMockTest {
                 orderRepository.count()
         );
 
-        verify(orderEventProducer)
-                .publishOrderCreated(any());
+        verifyNoInteractions(orderEventProducer);
     }
 }

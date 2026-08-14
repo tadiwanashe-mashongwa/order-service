@@ -98,8 +98,7 @@ class OrderServiceIntegrationTest extends AbstractPostgresContainerTest {
         verify(catalogueClient)
                 .getPartById(any());
 
-        verify(orderEventProducer)
-                .publishOrderCreated(any());
+        verifyNoInteractions(orderEventProducer);
     }
 
     @Test
@@ -276,8 +275,7 @@ class OrderServiceIntegrationTest extends AbstractPostgresContainerTest {
         verify(catalogueClient, times(2))
                 .getPartById(any());
 
-        verify(orderEventProducer)
-                .publishOrderCreated(any());
+        verifyNoInteractions(orderEventProducer);
     }
     private ApiResponse<PartResponse> createCatalogueResponse(
             UUID partId,
