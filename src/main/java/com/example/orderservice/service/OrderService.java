@@ -15,8 +15,12 @@ import com.example.orderservice.event.OrderCreatedEvent;
 import com.example.orderservice.exception.OrderNotFoundException;
 import com.example.orderservice.mapper.OrderEventMapper;
 import com.example.orderservice.mapper.OrderMapper;
+import com.example.orderservice.outbox.OutboxEvent;
+import com.example.orderservice.outbox.OutboxEventRepository;
 import com.example.orderservice.producer.OrderEventProducer;
 import com.example.orderservice.repository.OrderRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -37,6 +41,8 @@ public class OrderService {
     private final OrderEventMapper orderEventMapper;
     private final OrderMapper orderMapper;
     private final OrderEventProducer orderEventProducer;
+    private final OutboxEventRepository outboxEventRepository;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
@@ -87,6 +93,15 @@ public class OrderService {
 
         OrderCreatedEvent event =
                 orderEventMapper.toOrderCreatedEvent(savedOrder);
+
+        outboxEventRepository.save(
+                OutboxEvent.builder()
+                        .aggregateId(savedOrder.getId())
+                        .topic("order-created")
+                        .eventType(OrderCreatedEvent.class.getSimpleName())
+                        .payload(serialize(event))
+                        .build()
+        );
 
         orderEventProducer.publishOrderCreated(event);
 
@@ -159,5 +174,16 @@ public class OrderService {
         order.transitionTo(targetStatus);
 
         log.info("Order {} transitioned to {}", orderId, targetStatus);
+    }
+
+    private String serialize(OrderCreatedEvent event) {
+        try {
+            return objectMapper.writeValueAsString(event);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(
+                    "Failed to serialize order-created event",
+                    e
+            );
+        }
     }
 }

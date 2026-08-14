@@ -13,8 +13,10 @@ import com.example.orderservice.exception.OrderNotFoundException;
 import com.example.orderservice.exception.PartNotFoundException;
 import com.example.orderservice.mapper.OrderEventMapper;
 import com.example.orderservice.mapper.OrderMapper;
+import com.example.orderservice.outbox.OutboxEventRepository;
 import com.example.orderservice.producer.OrderEventProducer;
 import com.example.orderservice.repository.OrderRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -54,11 +56,17 @@ class OrderServiceTest {
     @Mock
     private OrderEventProducer orderEventProducer;
 
+    @Mock
+    private OutboxEventRepository outboxEventRepository;
+
+    @Mock
+    private ObjectMapper objectMapper;
+
     @InjectMocks
     private OrderService orderService;
 
     @Test
-    void shouldCreateOrderSuccessfully() {
+    void shouldCreateOrderSuccessfully() throws Exception {
 
         // Arrange
         UUID customerId = UUID.randomUUID();
@@ -118,6 +126,9 @@ class OrderServiceTest {
 
         when(orderEventMapper.toOrderCreatedEvent(any(Order.class)))
                 .thenReturn(event);
+
+        when(objectMapper.writeValueAsString(event))
+                .thenReturn("{}");
 
         // Act
         CreateOrderResponse response =

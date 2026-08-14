@@ -10,6 +10,8 @@ import com.example.orderservice.dto.CreateOrderRequest;
 import com.example.orderservice.dto.CreateOrderResponse;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderStatus;
+import com.example.orderservice.outbox.OutboxEvent;
+import com.example.orderservice.outbox.OutboxEventRepository;
 import com.example.orderservice.exception.CatalogueUnavailableException;
 import com.example.orderservice.exception.PartNotFoundException;
 import com.example.orderservice.producer.OrderEventProducer;
@@ -42,6 +44,9 @@ class OrderServiceIntegrationTest extends AbstractPostgresContainerTest {
 
     @Autowired
     private OrderRepository orderRepository;
+
+    @Autowired
+    private OutboxEventRepository outboxEventRepository;
 
     @MockitoBean
     private CatalogueClient catalogueClient;
@@ -95,6 +100,31 @@ class OrderServiceIntegrationTest extends AbstractPostgresContainerTest {
 
         verify(orderEventProducer)
                 .publishOrderCreated(any());
+    }
+
+    @Test
+    void shouldPersistPendingOrderCreatedEventInOutbox() {
+
+        // Given
+        CreateOrderRequest request = createRequest();
+
+        when(catalogueClient.getPartById(any()))
+                .thenReturn(createCatalogueResponse());
+
+        // When
+        CreateOrderResponse response = orderService.createOrder(request);
+
+        // Then
+        OutboxEvent outboxEvent = outboxEventRepository.findAll()
+                .stream()
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(response.orderId(), outboxEvent.getAggregateId());
+        assertEquals("order-created", outboxEvent.getTopic());
+        assertEquals("OrderCreatedEvent", outboxEvent.getEventType());
+        assertFalse(outboxEvent.isPublished());
+        assertTrue(outboxEvent.getPayload().contains(response.orderId().toString()));
     }
 
     @Test
