@@ -15,6 +15,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -64,5 +66,41 @@ class OutboxRelayTest {
 
         verify(orderEventProducer).publishOrderCreated(event);
         assertTrue(outboxEvent.isPublished());
+    }
+
+    @Test
+    void shouldLeaveEventUnpublishedWhenKafkaPublishingFails()
+            throws Exception {
+
+        OrderCreatedEvent event = new OrderCreatedEvent(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                List.of()
+        );
+        OutboxEvent outboxEvent = OutboxEvent.builder()
+                .aggregateId(event.orderId())
+                .topic("order-created")
+                .eventType(OrderCreatedEvent.class.getSimpleName())
+                .payload("{...}")
+                .build();
+
+        when(outboxEventRepository
+                .findTop100ByPublishedFalseOrderByCreatedAtAsc())
+                .thenReturn(List.of(outboxEvent));
+        when(objectMapper.readValue(
+                outboxEvent.getPayload(),
+                OrderCreatedEvent.class
+        )).thenReturn(event);
+        when(orderEventProducer.publishOrderCreated(event))
+                .thenReturn(CompletableFuture.failedFuture(
+                        new RuntimeException("Kafka is unavailable")
+                ));
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> outboxRelay.publishPendingEvents()
+        );
+
+        assertFalse(outboxEvent.isPublished());
     }
 }
