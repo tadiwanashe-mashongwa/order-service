@@ -22,12 +22,22 @@
     {
       "username": "customer",
       "enabled": true,
+      "email": "customer@sparelink.local",
+      "emailVerified": true,
+      "firstName": "SpareLink",
+      "lastName": "Customer",
+      "requiredActions": [],
       "credentials": [{ "type": "password", "value": "customer", "temporary": false }],
       "realmRoles": ["CUSTOMER"]
     },
     {
       "username": "admin",
       "enabled": true,
+      "email": "admin@sparelink.local",
+      "emailVerified": true,
+      "firstName": "SpareLink",
+      "lastName": "Admin",
+      "requiredActions": [],
       "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
       "realmRoles": ["ADMIN"]
     }
