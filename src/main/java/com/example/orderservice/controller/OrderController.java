@@ -21,6 +21,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -47,9 +51,26 @@ public class OrderController {
             @ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public CreateOrderResponse createOrder(
-            @Valid @RequestBody CreateOrderRequest request
+            @Valid @RequestBody CreateOrderRequest request,
+            @AuthenticationPrincipal Jwt jwt,
+            Authentication authentication
     ) {
+        ensureCustomerOwnsOrder(request.customerId(), jwt, authentication);
         return orderService.createOrder(request);
+    }
+
+    private void ensureCustomerOwnsOrder(
+            UUID customerId,
+            Jwt jwt,
+            Authentication authentication
+    ) {
+        if (jwt == null || authentication.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"))) {
+            return;
+        }
+        if (!customerId.toString().equals(jwt.getSubject())) {
+            throw new AccessDeniedException("Customers can only create their own orders");
+        }
     }
 
     @PatchMapping("/{orderId}/status")
@@ -77,11 +98,14 @@ public class OrderController {
     public OrderResponse getOrderById(
 
             @Parameter(description = "Order ID")
-            @PathVariable UUID orderId
+            @PathVariable UUID orderId,
+            @AuthenticationPrincipal Jwt jwt,
+            Authentication authentication
 
     ) {
-
-        return orderService.getOrderById(orderId);
+        OrderResponse order = orderService.getOrderById(orderId);
+        ensureCustomerOwnsOrder(order.customerId(), jwt, authentication);
+        return order;
 
     }
 
@@ -131,10 +155,12 @@ public class OrderController {
                     sort = "createdAt",
                     direction = Sort.Direction.DESC
             )
-            Pageable pageable
+            Pageable pageable,
+            @AuthenticationPrincipal Jwt jwt,
+            Authentication authentication
 
     ) {
-
+        ensureCustomerOwnsOrder(customerId, jwt, authentication);
         return orderService.getOrdersByCustomer(
                 customerId,
                 pageable

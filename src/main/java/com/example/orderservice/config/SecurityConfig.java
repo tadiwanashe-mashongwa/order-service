@@ -15,6 +15,7 @@ import java.util.Map;
 
 import static org.springframework.http.HttpMethod.PATCH;
 import static org.springframework.http.HttpMethod.POST;
+import static org.springframework.http.HttpMethod.GET;
 
 @Configuration
 public class SecurityConfig {
@@ -33,6 +34,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers("/api/outbox/**").hasRole("ADMIN")
                         .requestMatchers(PATCH, "/api/orders/*/status").hasRole("ADMIN")
+                        .requestMatchers(GET, "/api/orders").hasRole("ADMIN")
                         .requestMatchers(POST, "/api/orders/**")
                         .hasAnyRole("CUSTOMER", "ADMIN")
                         .requestMatchers("/api/orders/**")
