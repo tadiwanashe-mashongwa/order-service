@@ -52,6 +52,15 @@ public class OrderController {
         return orderService.createOrder(request);
     }
 
+    @PatchMapping("/{orderId}/status")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void transitionOrderStatus(
+            @PathVariable UUID orderId,
+            @RequestParam OrderStatus status
+    ) {
+        orderService.transitionOrderStatus(orderId, status);
+    }
+
     @GetMapping("/{orderId}")
     @Operation(
             summary = "Get order by ID",

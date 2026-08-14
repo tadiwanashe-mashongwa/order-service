@@ -2,6 +2,7 @@ package com.example.orderservice.controller;
 
 import com.example.orderservice.dto.*;
 import com.example.orderservice.entity.OrderStatus;
+import com.example.orderservice.exception.InvalidOrderStatusTransitionException;
 import com.example.orderservice.exception.OrderNotFoundException;
 import com.example.orderservice.service.OrderService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,6 +34,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -326,5 +328,75 @@ class OrderControllerTest {
                         eq(customerId),
                         any(Pageable.class)
                 );
+    }
+
+    @Test
+    void shouldTransitionOrderStatus() throws Exception {
+
+        UUID orderId = UUID.randomUUID();
+
+        mockMvc.perform(
+                        patch("/api/orders/{orderId}/status", orderId)
+                                .param("status", "STOCK_RESERVED")
+                )
+                .andExpect(status().isNoContent());
+
+        verify(orderService).transitionOrderStatus(
+                orderId,
+                OrderStatus.STOCK_RESERVED
+        );
+    }
+
+    @Test
+    void shouldReturnConflictForInvalidOrderStatusTransition() throws Exception {
+
+        UUID orderId = UUID.randomUUID();
+
+        org.mockito.Mockito.doThrow(
+                        new InvalidOrderStatusTransitionException(
+                                "Cannot transition from DELIVERED to PENDING"
+                        )
+                )
+                .when(orderService)
+                .transitionOrderStatus(orderId, OrderStatus.PENDING);
+
+        mockMvc.perform(
+                        patch("/api/orders/{orderId}/status", orderId)
+                                .param("status", "PENDING")
+                )
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title")
+                        .value("Invalid Order Status Transition"))
+                .andExpect(jsonPath("$.status").value(409));
+
+        verify(orderService).transitionOrderStatus(
+                orderId,
+                OrderStatus.PENDING
+        );
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenTransitioningAnUnknownOrder() throws Exception {
+
+        UUID orderId = UUID.randomUUID();
+
+        org.mockito.Mockito.doThrow(
+                        new OrderNotFoundException("Order not found")
+                )
+                .when(orderService)
+                .transitionOrderStatus(orderId, OrderStatus.STOCK_RESERVED);
+
+        mockMvc.perform(
+                        patch("/api/orders/{orderId}/status", orderId)
+                                .param("status", "STOCK_RESERVED")
+                )
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title").value("Order Not Found"))
+                .andExpect(jsonPath("$.status").value(404));
+
+        verify(orderService).transitionOrderStatus(
+                orderId,
+                OrderStatus.STOCK_RESERVED
+        );
     }
 }
