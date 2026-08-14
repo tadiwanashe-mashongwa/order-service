@@ -2,11 +2,13 @@ package com.example.orderservice.config;
 
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 
 @Configuration(proxyBeanMethods = false)
-public class KafkaTestContainer {
+public class KafkaTestContainer extends AbstractPostgresContainerTest {
 
     @ServiceConnection
     static KafkaContainer kafka =
@@ -18,6 +20,16 @@ public class KafkaTestContainer {
 
     static {
         kafka.start();
+    }
+
+    @DynamicPropertySource
+    static void configureKafka(
+            DynamicPropertyRegistry registry
+    ) {
+        registry.add(
+                "spring.kafka.bootstrap-servers",
+                kafka::getBootstrapServers
+        );
     }
 
 }
