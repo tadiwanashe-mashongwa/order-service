@@ -10,6 +10,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.concurrent.ExecutionException;
 
 @Component
@@ -24,7 +25,10 @@ public class OutboxRelay {
     @Transactional
     public void publishPendingEvents() {
         for (OutboxEvent outboxEvent :
-                outboxEventRepository.findTop100ByPublishedFalseOrderByCreatedAtAsc()) {
+                outboxEventRepository
+                        .findTop100ByPublishedFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+                                Instant.now()
+                        )) {
             try {
                 publish(outboxEvent);
                 outboxEvent.markPublished();

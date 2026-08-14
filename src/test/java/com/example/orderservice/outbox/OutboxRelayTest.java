@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -20,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
 
 @ExtendWith(MockitoExtension.class)
 class OutboxRelayTest {
@@ -54,7 +56,9 @@ class OutboxRelayTest {
                 .build();
 
         when(outboxEventRepository
-                .findTop100ByPublishedFalseOrderByCreatedAtAsc())
+                .findTop100ByPublishedFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+                        any(Instant.class)
+                ))
                 .thenReturn(List.of(outboxEvent));
         when(objectMapper.readValue(
                 outboxEvent.getPayload(),
@@ -86,7 +90,9 @@ class OutboxRelayTest {
                 .build();
 
         when(outboxEventRepository
-                .findTop100ByPublishedFalseOrderByCreatedAtAsc())
+                .findTop100ByPublishedFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+                        any(Instant.class)
+                ))
                 .thenReturn(List.of(outboxEvent));
         when(objectMapper.readValue(
                 outboxEvent.getPayload(),
@@ -102,6 +108,7 @@ class OutboxRelayTest {
         assertFalse(outboxEvent.isPublished());
         assertTrue(outboxEvent.getAttemptCount() == 1);
         assertTrue(outboxEvent.getLastError().contains("Kafka is unavailable"));
+        assertTrue(outboxEvent.getNextAttemptAt().isAfter(Instant.now()));
     }
 
     @Test
@@ -123,7 +130,9 @@ class OutboxRelayTest {
                 .build();
 
         when(outboxEventRepository
-                .findTop100ByPublishedFalseOrderByCreatedAtAsc())
+                .findTop100ByPublishedFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+                        any(Instant.class)
+                ))
                 .thenReturn(List.of(outboxEvent));
         when(objectMapper.readValue(
                 outboxEvent.getPayload(),

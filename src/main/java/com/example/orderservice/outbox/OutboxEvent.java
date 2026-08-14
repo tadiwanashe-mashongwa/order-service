@@ -49,6 +49,10 @@ public class OutboxEvent {
     @Column(columnDefinition = "TEXT")
     private String lastError;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private Instant nextAttemptAt = Instant.now();
+
     @Column(nullable = false, updatable = false)
     @CreationTimestamp
     private Instant createdAt;
@@ -62,5 +66,6 @@ public class OutboxEvent {
         lastError = exception.getCause() == null
                 ? exception.getMessage()
                 : exception.getCause().getMessage();
+        nextAttemptAt = Instant.now().plusSeconds(1);
     }
 }
