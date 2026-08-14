@@ -1,6 +1,8 @@
 package com.example.orderservice.outbox;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
 import java.util.List;
@@ -13,4 +15,6 @@ public interface OutboxEventRepository
     findTop100ByPublishedFalseAndDeadLetteredFalseAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
             Instant nextAttemptAt
     );
+
+    Page<OutboxEvent> findByDeadLetteredTrue(Pageable pageable);
 }
