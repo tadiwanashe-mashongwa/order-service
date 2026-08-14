@@ -1,6 +1,7 @@
 package com.example.orderservice.outbox;
 
 import com.example.orderservice.event.OrderCreatedEvent;
+import com.example.orderservice.event.OrderStatusChangedEvent;
 import com.example.orderservice.producer.OrderEventProducer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,11 +32,25 @@ public class OutboxRelay {
 
     private void publish(OutboxEvent outboxEvent) {
         try {
-            OrderCreatedEvent event = objectMapper.readValue(
-                    outboxEvent.getPayload(),
-                    OrderCreatedEvent.class
-            );
-            orderEventProducer.publishOrderCreated(event).get();
+            switch (outboxEvent.getEventType()) {
+                case "OrderCreatedEvent" -> {
+                    OrderCreatedEvent event = objectMapper.readValue(
+                            outboxEvent.getPayload(),
+                            OrderCreatedEvent.class
+                    );
+                    orderEventProducer.publishOrderCreated(event).get();
+                }
+                case "OrderStatusChangedEvent" -> {
+                    OrderStatusChangedEvent event = objectMapper.readValue(
+                            outboxEvent.getPayload(),
+                            OrderStatusChangedEvent.class
+                    );
+                    orderEventProducer.publishOrderStatusChanged(event).get();
+                }
+                default -> throw new IllegalArgumentException(
+                        "Unsupported outbox event type " + outboxEvent.getEventType()
+                );
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException(

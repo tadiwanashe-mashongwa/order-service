@@ -12,6 +12,7 @@ import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderItem;
 import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.event.OrderCreatedEvent;
+import com.example.orderservice.event.OrderStatusChangedEvent;
 import com.example.orderservice.exception.OrderNotFoundException;
 import com.example.orderservice.mapper.OrderEventMapper;
 import com.example.orderservice.mapper.OrderMapper;
@@ -167,12 +168,30 @@ public class OrderService {
                             "Order not found with id: " + orderId);
                 });
 
+        OrderStatus previousStatus = order.getStatus();
+
         order.transitionTo(targetStatus);
+
+        OrderStatusChangedEvent event = new OrderStatusChangedEvent(
+                order.getId(),
+                order.getCustomerId(),
+                previousStatus,
+                order.getStatus()
+        );
+
+        outboxEventRepository.save(
+                OutboxEvent.builder()
+                        .aggregateId(order.getId())
+                        .topic("order-status-changed")
+                        .eventType(OrderStatusChangedEvent.class.getSimpleName())
+                        .payload(serialize(event))
+                        .build()
+        );
 
         log.info("Order {} transitioned to {}", orderId, targetStatus);
     }
 
-    private String serialize(OrderCreatedEvent event) {
+    private String serialize(Object event) {
         try {
             return objectMapper.writeValueAsString(event);
         } catch (JsonProcessingException e) {

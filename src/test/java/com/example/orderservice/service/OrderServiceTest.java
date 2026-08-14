@@ -14,6 +14,7 @@ import com.example.orderservice.exception.PartNotFoundException;
 import com.example.orderservice.mapper.OrderEventMapper;
 import com.example.orderservice.mapper.OrderMapper;
 import com.example.orderservice.outbox.OutboxEventRepository;
+import com.example.orderservice.outbox.OutboxEvent;
 import com.example.orderservice.producer.OrderEventProducer;
 import com.example.orderservice.repository.OrderRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -469,6 +470,36 @@ class OrderServiceTest {
 
         verifyNoMoreInteractions(orderRepository);
     }
+
+    @Test
+    void shouldPersistOrderStatusChangedEventForValidTransition() throws Exception {
+
+        UUID orderId = UUID.randomUUID();
+        Order order = Order.builder()
+                .id(orderId)
+                .status(OrderStatus.PENDING)
+                .build();
+
+        when(orderRepository.findById(orderId))
+                .thenReturn(Optional.of(order));
+        when(objectMapper.writeValueAsString(any()))
+                .thenReturn("{\"previousStatus\":\"PENDING\",\"status\":\"STOCK_RESERVED\"}");
+
+        orderService.transitionOrderStatus(
+                orderId,
+                OrderStatus.STOCK_RESERVED
+        );
+
+        ArgumentCaptor<OutboxEvent> eventCaptor =
+                ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxEventRepository).save(eventCaptor.capture());
+
+        OutboxEvent outboxEvent = eventCaptor.getValue();
+        assertEquals(orderId, outboxEvent.getAggregateId());
+        assertEquals("order-status-changed", outboxEvent.getTopic());
+        assertEquals("OrderStatusChangedEvent", outboxEvent.getEventType());
+        assertFalse(outboxEvent.isPublished());
+    }
     @Test
     void shouldThrowExceptionForInvalidStatusTransition() {
 
@@ -493,6 +524,8 @@ class OrderServiceTest {
         );
 
         verify(orderRepository).findById(orderId);
+
+        verifyNoInteractions(outboxEventRepository);
 
         verifyNoMoreInteractions(orderRepository);
     }

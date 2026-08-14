@@ -8,6 +8,7 @@ import com.example.orderservice.client.PartResponse;
 import com.example.orderservice.dto.CreateOrderItemRequest;
 import com.example.orderservice.dto.CreateOrderRequest;
 import com.example.orderservice.dto.CreateOrderResponse;
+import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.event.OrderCreatedEvent;
 import com.example.orderservice.event.OrderItemEvent;
 import com.example.orderservice.outbox.OutboxEvent;
@@ -80,7 +81,7 @@ class OrderKafkaIntegrationTest extends KafkaTestContainer {
                 ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
                 StringDeserializer.class
         ));
-        consumer.subscribe(List.of("order-created"));
+        consumer.subscribe(List.of("order-created", "order-status-changed"));
         consumer.poll(Duration.ofSeconds(1));
     }
 
@@ -161,5 +162,58 @@ class OrderKafkaIntegrationTest extends KafkaTestContainer {
 
         OutboxEvent outboxEvent = outboxEventRepository.findAll().getFirst();
         assertTrue(outboxEvent.isPublished());
+    }
+
+    @Test
+    void shouldRelayOrderStatusChangedEventToKafka() {
+
+        UUID partId = UUID.randomUUID();
+        CreateOrderRequest request = new CreateOrderRequest(
+                UUID.randomUUID(),
+                List.of(new CreateOrderItemRequest(partId, 1))
+        );
+        when(catalogueClient.getPartById(partId)).thenReturn(
+                new ApiResponse<>(
+                        true,
+                        "Success",
+                        new PartResponse(
+                                partId,
+                                "Brake Pads",
+                                new MoneyResponse(250, "USD")
+                        ),
+                        Instant.now()
+                )
+        );
+
+        CreateOrderResponse order = orderService.createOrder(request);
+        orderService.transitionOrderStatus(
+                order.orderId(),
+                OrderStatus.STOCK_RESERVED
+        );
+
+        outboxRelay.publishPendingEvents();
+
+        ConsumerRecord<String, String> statusChangeRecord = null;
+        Instant deadline = Instant.now().plusSeconds(10);
+        while (statusChangeRecord == null && Instant.now().isBefore(deadline)) {
+            ConsumerRecords<String, String> records =
+                    consumer.poll(Duration.ofSeconds(1));
+            for (ConsumerRecord<String, String> record :
+                    records.records("order-status-changed")) {
+                if (record.key().equals(order.orderId().toString())) {
+                    statusChangeRecord = record;
+                    break;
+                }
+            }
+        }
+
+        assertNotNull(statusChangeRecord);
+        assertTrue(statusChangeRecord.value()
+                .contains("\"previousStatus\":\"PENDING\""));
+        assertTrue(statusChangeRecord.value()
+                .contains("\"status\":\"STOCK_RESERVED\""));
+        assertTrue(outboxEventRepository.findAll()
+                .stream()
+                .allMatch(OutboxEvent::isPublished));
     }
 }

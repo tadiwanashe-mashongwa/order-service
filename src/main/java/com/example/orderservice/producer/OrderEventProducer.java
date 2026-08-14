@@ -1,6 +1,7 @@
 package com.example.orderservice.producer;
 
 import com.example.orderservice.event.OrderCreatedEvent;
+import com.example.orderservice.event.OrderStatusChangedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -14,19 +15,31 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class OrderEventProducer {
 
-    private final KafkaTemplate<String, OrderCreatedEvent> kafkaTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
 
-    public CompletableFuture<SendResult<String, OrderCreatedEvent>>
+    public CompletableFuture<SendResult<String, Object>>
     publishOrderCreated(OrderCreatedEvent event) {
 
         log.info("Publishing OrderCreatedEvent for order {}", event.orderId());
 
-        CompletableFuture<SendResult<String, OrderCreatedEvent>> result = kafkaTemplate.send(
+        CompletableFuture<SendResult<String, Object>> result = kafkaTemplate.send(
                 "order-created",
                 event.orderId().toString(),
                 event
         );
 
         return result;
+    }
+
+    public CompletableFuture<SendResult<String, Object>>
+    publishOrderStatusChanged(OrderStatusChangedEvent event) {
+
+        log.info("Publishing OrderStatusChangedEvent for order {}", event.orderId());
+
+        return kafkaTemplate.send(
+                "order-status-changed",
+                event.orderId().toString(),
+                event
+        );
     }
 }
