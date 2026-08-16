@@ -59,15 +59,43 @@ class PaymentStatusKafkaIntegrationTest extends KafkaTestContainer {
         assertThat(waitForStatus(order.getId())).isEqualTo(OrderStatus.PAID);
     }
 
+    @Test
+    void shouldMarkPaymentPendingOrderAsPaymentFailedFromKafkaPaymentFailureEvent() throws Exception {
+        Order order = orderRepository.save(Order.builder()
+                .customerId(UUID.randomUUID())
+                .status(OrderStatus.PENDING)
+                .totalAmount(BigDecimal.ZERO)
+                .build());
+        orderService.transitionOrderStatus(order.getId(), OrderStatus.STOCK_RESERVED);
+        orderService.transitionOrderStatus(order.getId(), OrderStatus.PAYMENT_PENDING);
+        ContainerTestUtils.waitForAssignment(
+                kafkaListenerEndpointRegistry.getListenerContainers().iterator().next(),
+                1
+        );
+
+        kafkaTemplate.send(
+                "payment-status-changed",
+                UUID.randomUUID().toString(),
+                new PaymentStatusChangedEvent(UUID.randomUUID(), order.getId(), "FAILED")
+        ).get();
+
+        assertThat(waitForStatus(order.getId(), OrderStatus.PAYMENT_FAILED))
+                .isEqualTo(OrderStatus.PAYMENT_FAILED);
+    }
+
     private OrderStatus waitForStatus(UUID orderId) throws InterruptedException {
+        return waitForStatus(orderId, OrderStatus.PAID);
+    }
+
+    private OrderStatus waitForStatus(UUID orderId, OrderStatus targetStatus) throws InterruptedException {
         Instant deadline = Instant.now().plusSeconds(10);
         while (Instant.now().isBefore(deadline)) {
             OrderStatus status = orderRepository.findById(orderId).orElseThrow().getStatus();
-            if (status == OrderStatus.PAID) {
+            if (status == targetStatus) {
                 return status;
             }
             Thread.sleep(100);
         }
-        throw new AssertionError("Timed out waiting for order " + orderId + " to be PAID");
+        throw new AssertionError("Timed out waiting for order " + orderId + " to be " + targetStatus);
     }
 }
