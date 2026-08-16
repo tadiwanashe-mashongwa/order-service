@@ -169,6 +169,10 @@ public class OrderService {
                 });
 
         OrderStatus previousStatus = order.getStatus();
+        if (previousStatus == targetStatus) {
+            log.info("Order {} is already {}", orderId, targetStatus);
+            return;
+        }
 
         order.transitionTo(targetStatus);
 

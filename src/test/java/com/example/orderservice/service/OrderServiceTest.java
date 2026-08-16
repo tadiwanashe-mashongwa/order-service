@@ -501,6 +501,21 @@ class OrderServiceTest {
         assertEquals("OrderStatusChangedEvent", outboxEvent.getEventType());
         assertFalse(outboxEvent.isPublished());
     }
+
+    @Test
+    void shouldIgnoreDuplicateStatusTransition() {
+        UUID orderId = UUID.randomUUID();
+        Order order = Order.builder()
+                .id(orderId)
+                .status(OrderStatus.PAYMENT_PENDING)
+                .build();
+        when(orderRepository.findById(orderId)).thenReturn(Optional.of(order));
+
+        orderService.transitionOrderStatus(orderId, OrderStatus.PAYMENT_PENDING);
+
+        assertEquals(OrderStatus.PAYMENT_PENDING, order.getStatus());
+        verifyNoInteractions(outboxEventRepository);
+    }
     @Test
     void shouldThrowExceptionForInvalidStatusTransition() {
 
