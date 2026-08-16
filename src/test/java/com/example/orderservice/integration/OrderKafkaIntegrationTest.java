@@ -32,6 +32,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.Instant;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -97,6 +98,7 @@ class OrderKafkaIntegrationTest extends KafkaTestContainer {
         OrderCreatedEvent event = new OrderCreatedEvent(
                 orderId,
                 customerId,
+                new BigDecimal("42.50"),
                 List.of(new OrderItemEvent(UUID.randomUUID(), 2))
         );
 
@@ -119,6 +121,7 @@ class OrderKafkaIntegrationTest extends KafkaTestContainer {
         assertEquals(orderId.toString(), record.key());
         assertTrue(record.value().contains("\"orderId\":\"" + orderId + "\""));
         assertTrue(record.value().contains("\"customerId\":\"" + customerId + "\""));
+        assertTrue(record.value().contains("\"totalAmount\":42.50"));
     }
 
     @Test

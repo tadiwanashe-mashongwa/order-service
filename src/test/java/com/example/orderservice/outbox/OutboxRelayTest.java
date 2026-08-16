@@ -46,6 +46,7 @@ class OutboxRelayTest {
         OrderCreatedEvent event = new OrderCreatedEvent(
                 orderId,
                 UUID.randomUUID(),
+                java.math.BigDecimal.TEN,
                 List.of(new OrderItemEvent(UUID.randomUUID(), 1))
         );
         OutboxEvent outboxEvent = OutboxEvent.builder()
@@ -80,6 +81,7 @@ class OutboxRelayTest {
         OrderCreatedEvent event = new OrderCreatedEvent(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
+                java.math.BigDecimal.TEN,
                 List.of()
         );
         OutboxEvent outboxEvent = OutboxEvent.builder()
@@ -118,6 +120,7 @@ class OutboxRelayTest {
         OrderCreatedEvent event = new OrderCreatedEvent(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
+                java.math.BigDecimal.TEN,
                 List.of()
         );
         OutboxEvent outboxEvent = OutboxEvent.builder()

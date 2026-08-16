@@ -21,6 +21,7 @@ public class OrderEventMapper {
         return new OrderCreatedEvent(
                 order.getId(),
                 order.getCustomerId(),
+                order.getTotalAmount(),
                 items
         );
     }

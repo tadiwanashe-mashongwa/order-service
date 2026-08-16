@@ -122,6 +122,7 @@ class OrderServiceTest {
                 new OrderCreatedEvent(
                         orderId,
                         customerId,
+                        new BigDecimal("100.00"),
                         List.of()
                 );
 

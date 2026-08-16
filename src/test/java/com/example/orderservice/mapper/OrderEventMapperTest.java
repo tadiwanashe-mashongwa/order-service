@@ -55,6 +55,7 @@ class OrderEventMapperTest {
 
         assertEquals(orderId, event.orderId());
         assertEquals(customerId, event.customerId());
+        assertEquals(BigDecimal.valueOf(120.00), event.totalAmount());
 
         assertEquals(1, event.items().size());
 
