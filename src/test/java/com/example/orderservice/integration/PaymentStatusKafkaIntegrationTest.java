@@ -4,6 +4,7 @@ import com.example.orderservice.config.KafkaTestContainer;
 import com.example.orderservice.entity.Order;
 import com.example.orderservice.entity.OrderStatus;
 import com.example.orderservice.event.PaymentStatusChangedEvent;
+import com.example.orderservice.event.StockReservedEvent;
 import com.example.orderservice.repository.OrderRepository;
 import com.example.orderservice.service.OrderService;
 import org.junit.jupiter.api.Test;
@@ -81,6 +82,28 @@ class PaymentStatusKafkaIntegrationTest extends KafkaTestContainer {
 
         assertThat(waitForStatus(order.getId(), OrderStatus.PAYMENT_FAILED))
                 .isEqualTo(OrderStatus.PAYMENT_FAILED);
+    }
+
+    @Test
+    void shouldMarkPendingOrderAsPaymentPendingFromKafkaStockReservedEvent() throws Exception {
+        Order order = orderRepository.save(Order.builder()
+                .customerId(UUID.randomUUID())
+                .status(OrderStatus.PENDING)
+                .totalAmount(BigDecimal.ZERO)
+                .build());
+        ContainerTestUtils.waitForAssignment(
+                kafkaListenerEndpointRegistry.getListenerContainers().iterator().next(),
+                1
+        );
+
+        kafkaTemplate.send(
+                "stock-reserved",
+                order.getId().toString(),
+                new StockReservedEvent(order.getId())
+        ).get();
+
+        assertThat(waitForStatus(order.getId(), OrderStatus.PAYMENT_PENDING))
+                .isEqualTo(OrderStatus.PAYMENT_PENDING);
     }
 
     private OrderStatus waitForStatus(UUID orderId) throws InterruptedException {
