@@ -17,6 +17,7 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
+import org.slf4j.MDC;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -26,6 +27,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 
 @SpringBootTest
 @AutoConfigureTestDatabase(
@@ -255,5 +258,21 @@ class OrderFeignIntegrationTest extends AbstractWireMockTest {
         );
 
         verifyNoInteractions(orderEventProducer);
+    }
+
+    @Test
+    void shouldPropagateCorrelationIdToCatalogueThroughFeign() {
+        UUID partId = UUID.randomUUID();
+        WireMockSupport.stubPart(wireMockServer, partId, "Brake Pads", 250);
+        MDC.put("correlationId", "feign-correlation-123");
+
+        try {
+            orderService.createOrder(TestDataFactory.singleItemOrderRequest(partId));
+        } finally {
+            MDC.clear();
+        }
+
+        wireMockServer.verify(getRequestedFor(urlEqualTo("/api/parts/" + partId))
+                .withHeader("X-Correlation-Id", com.github.tomakehurst.wiremock.client.WireMock.equalTo("feign-correlation-123")));
     }
 }
