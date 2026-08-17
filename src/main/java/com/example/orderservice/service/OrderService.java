@@ -45,11 +45,30 @@ public class OrderService {
 
     @Transactional
     public CreateOrderResponse createOrder(CreateOrderRequest request) {
+        return createOrder(request, null);
+    }
+
+    @Transactional
+    public CreateOrderResponse createOrder(
+            CreateOrderRequest request,
+            String idempotencyKey
+    ) {
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            var existingOrder = orderRepository.findByCustomerIdAndIdempotencyKey(
+                    request.customerId(),
+                    idempotencyKey
+            );
+            if (existingOrder.isPresent()) {
+                return toCreateOrderResponse(existingOrder.get());
+            }
+        }
 
         log.info("Creating order for customer {}", request.customerId());
 
         Order order = Order.builder()
                 .customerId(request.customerId())
+                .idempotencyKey(idempotencyKey)
                 .status(OrderStatus.PENDING)
                 .totalAmount(BigDecimal.ZERO)
                 .build();
@@ -102,13 +121,7 @@ public class OrderService {
                         .build()
         );
 
-        return new CreateOrderResponse(
-                savedOrder.getId(),
-                savedOrder.getCustomerId(),
-                savedOrder.getStatus(),
-                savedOrder.getTotalAmount(),
-                savedOrder.getCreatedAt()
-        );
+        return toCreateOrderResponse(savedOrder);
     }
 
     @Transactional(readOnly = true)
@@ -204,5 +217,15 @@ public class OrderService {
                     e
             );
         }
+    }
+
+    private CreateOrderResponse toCreateOrderResponse(Order order) {
+        return new CreateOrderResponse(
+                order.getId(),
+                order.getCustomerId(),
+                order.getStatus(),
+                order.getTotalAmount(),
+                order.getCreatedAt()
+        );
     }
 }

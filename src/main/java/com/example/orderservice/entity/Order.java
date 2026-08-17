@@ -120,6 +120,9 @@ public class Order {
     @Column(nullable = false)
     private UUID customerId;
 
+    @Column(name = "idempotency_key", length = 64)
+    private String idempotencyKey;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private OrderStatus status;

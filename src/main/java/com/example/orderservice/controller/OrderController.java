@@ -52,11 +52,14 @@ public class OrderController {
     })
     public CreateOrderResponse createOrder(
             @Valid @RequestBody CreateOrderRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @AuthenticationPrincipal Jwt jwt,
             Authentication authentication
     ) {
         ensureCustomerOwnsOrder(request.customerId(), jwt, authentication);
-        return orderService.createOrder(request);
+        return idempotencyKey == null
+                ? orderService.createOrder(request)
+                : orderService.createOrder(request, idempotencyKey);
     }
 
     private void ensureCustomerOwnsOrder(

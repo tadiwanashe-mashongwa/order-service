@@ -127,6 +127,24 @@ class OrderServiceIntegrationTest extends AbstractPostgresContainerTest {
     }
 
     @Test
+    void shouldReturnTheOriginalOrderWhenAnIdempotencyKeyIsRepeated() {
+
+        CreateOrderRequest request = createRequest();
+        String idempotencyKey = UUID.randomUUID().toString();
+
+        when(catalogueClient.getPartById(any()))
+                .thenReturn(createCatalogueResponse());
+
+        CreateOrderResponse first = orderService.createOrder(request, idempotencyKey);
+        CreateOrderResponse repeated = orderService.createOrder(request, idempotencyKey);
+
+        assertEquals(first.orderId(), repeated.orderId());
+        assertEquals(1, orderRepository.count());
+        assertEquals(1, outboxEventRepository.count());
+        verify(catalogueClient, times(1)).getPartById(any());
+    }
+
+    @Test
     void shouldThrowPartNotFoundWhenCatalogueReturns404() {
 
         // Given

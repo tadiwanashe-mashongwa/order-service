@@ -102,6 +102,32 @@ class OrderControllerTest {
     }
 
     @Test
+    void shouldForwardIdempotencyKeyWhenCreatingAnOrder() throws Exception {
+
+        UUID orderId = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
+        String idempotencyKey = UUID.randomUUID().toString();
+        CreateOrderRequest request = new CreateOrderRequest(
+                customerId,
+                List.of(new CreateOrderItemRequest(UUID.randomUUID(), 1))
+        );
+        CreateOrderResponse response = new CreateOrderResponse(
+                orderId, customerId, OrderStatus.PENDING, new BigDecimal("120"), Instant.now()
+        );
+
+        when(orderService.createOrder(any(), eq(idempotencyKey))).thenReturn(response);
+
+        mockMvc.perform(post("/api/orders")
+                        .header("Idempotency-Key", idempotencyKey)
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.orderId").value(orderId.toString()));
+
+        verify(orderService).createOrder(any(), eq(idempotencyKey));
+    }
+
+    @Test
     void shouldReturnBadRequestWhenRequestIsInvalid() throws Exception {
 
         // Given
