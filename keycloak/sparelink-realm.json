@@ -1,6 +1,7 @@
 {
   "realm": "sparelink",
   "enabled": true,
+  "registrationAllowed": true,
   "roles": {
     "realm": [
       { "name": "CUSTOMER" },
